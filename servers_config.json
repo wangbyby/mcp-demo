@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "add-server": {
+            "command": "D://mcp_test//calc//.venv//Scripts//python.exe",
+            "args": [
+                "D://mcp_test//calc//add.py"
+            ]
+        }
+    }
+}
