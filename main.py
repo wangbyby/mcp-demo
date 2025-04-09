@@ -25,6 +25,7 @@ class Configuration:
         self.load_env()
         self.api_key = os.getenv("LLM_API_KEY")
         self.url = os.getenv("URL")
+        self.model = os.getenv("model")
 
     @staticmethod
     def load_env() -> None:
@@ -73,6 +74,18 @@ class Configuration:
         if not self.url:
             raise ValueError("URL not found in environment variables")
         return self.url
+
+    @property
+    def llm_model(self) -> str:
+        """Get the model name.
+        Returns:
+            The model name as a string.
+        Raises:
+            ValueError: If the model name is not found in environment variables.
+        """
+        if not self.model:
+            raise ValueError("model not found in environment variables")
+        return self.model
 
 
 class Server:
@@ -233,9 +246,10 @@ Arguments:
 class LLMClient:
     """Manages communication with the LLM provider."""
 
-    def __init__(self, api_key: str, url: str) -> None:
+    def __init__(self, api_key: str, url: str, model: str) -> None:
         self.api_key: str = api_key
         self.url: str = url
+        self.model: str = model
 
     def get_response(self, messages: list[dict[str, str]]) -> str:
         """Get a response from the LLM.
@@ -256,7 +270,7 @@ class LLMClient:
         }
         payload = {
             "messages": messages,
-            "model": "llama-3.2-90b-vision-preview",
+            "model": "qwen-plus",
             "temperature": 0.7,
             "max_tokens": 4096,
             "top_p": 1,
@@ -266,6 +280,8 @@ class LLMClient:
 
         try:
             with httpx.Client() as client:
+                logging.info(f"Sending request to {self.url}")
+
                 response = client.post(self.url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
@@ -295,15 +311,17 @@ class ChatSession:
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
-        cleanup_tasks = []
         for server in self.servers:
-            cleanup_tasks.append(asyncio.create_task(server.cleanup()))
+            await server.cleanup()
+        # cleanup_tasks = []
+        # for server in self.servers:
+        #     cleanup_tasks.append(asyncio.create_task(server.cleanup()))
 
-        if cleanup_tasks:
-            try:
-                await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-            except Exception as e:
-                logging.warning(f"Warning during final cleanup: {e}")
+        # if cleanup_tasks:
+        #     try:
+        #         await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+        #     except Exception as e:
+        #         logging.warning(f"Warning during final cleanup: {e}")
 
     async def process_llm_response(self, llm_response: str) -> str:
         """Process the LLM response and execute tools if needed.
@@ -401,6 +419,8 @@ class ChatSession:
 
                     messages.append({"role": "user", "content": user_input})
 
+                    logging.info("\n the message is: %s", messages)
+
                     llm_response = self.llm_client.get_response(messages)
                     logging.info("\nAssistant: %s", llm_response)
 
@@ -434,7 +454,7 @@ async def main() -> None:
         Server(name, srv_config)
         for name, srv_config in server_config["mcpServers"].items()
     ]
-    llm_client = LLMClient(config.llm_api_key, config.llm_url)
+    llm_client = LLMClient(config.llm_api_key, config.llm_url, config.model)
     chat_session = ChatSession(servers, llm_client)
     await chat_session.start()
 
