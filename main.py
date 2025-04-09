@@ -422,9 +422,10 @@ class ChatSession:
                     logging.info("\n the message is: %s", messages)
 
                     llm_response = self.llm_client.get_response(messages)
-                    logging.info("\nAssistant: %s", llm_response)
+                    logging.info("\n Response first: %s", llm_response)
 
                     result = await self.process_llm_response(llm_response)
+                    logging.info("\n After call mcp tools: %s", result)
 
                     if result != llm_response:
                         messages.append({"role": "assistant", "content": llm_response})
